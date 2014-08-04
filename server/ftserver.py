@@ -8,7 +8,7 @@
 #
 #     2. Then you have to run the script with the following command
 #        (omit the square brackets)
-#                 ./ftserver.py [host name] [port number]
+#                 ./ftserver.py [port number]
 #
 
 import socket
@@ -34,6 +34,18 @@ def createControlSocket():
         print "Error in socket creation"
         sys.exit()
 
+def execCmd(connectionSocket, cmd):
+    validCmd = False
+    if 'list' in cmd or 'quit' in cmd:
+        validCmd = True
+        break
+    elif 'get' in cmd and '.' in cmd:
+        validCmd = True
+         break
+
+
+    if validCmd == False:
+        connectionSocket.send('Invalid command entered; Valid commands are \'list\', \'get <filename>\', and \'quit\'')
 
 def listenForCmd(controlSocket,portNum):
     """Waits for the command to be recieved from 
@@ -44,8 +56,8 @@ def listenForCmd(controlSocket,portNum):
     while 1:
         connectionSocket, addr = controlSocket.accept()
         cmd = connectionSocket.recv(1024)
-        print cmd
-        connectionSocket.send("cmd recieved")
+             
+        execCmd(connectionSocket, cmd)  #Check if the command sent was valid and execute it if it is
         connectionSocket.close()
 
 #main program
