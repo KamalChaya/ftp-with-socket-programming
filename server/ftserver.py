@@ -25,16 +25,24 @@ def getPort():
     to connect to from the command line arguments"""
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:", ["controlport="])
+        opts, args = getopt.getopt(sys.argv[1:], "c:h:")
     except getopt.GetoptError as err:
-        print "USAGE: ./ftserver.py -c [controlport] \n OR : ./ftserver.py --controlport [controlport]\n"
+        print "USAGE: ./ftserver.py -c [controlport] -h [hostname] \n"
                
+    ctrlPort = None
+    clientHostName = None
+
     for o, a in opts:
-        if o in "-c" or "--controlport":
+        if o == "-c":
             ctrlPort = a
+        elif o == "-h":
+            clientHostName = a
+
+    if '.engr.oregonstate.edu' not in clientHostName:
+        clientHostName = clientHostName + '.engr.oregonstate.edu'
 
 
-    return ctrlPort        
+    return ctrlPort, clientHostName        
 
 def createSocket():
     """Creates a socket for the TCP control connection 
@@ -46,15 +54,12 @@ def createSocket():
         print "Error in socket creation"
         sys.exit()
 
-
-
-
 def connectDataSocket(dataSocket, hostName, dataPort):
     """Connects the socket to the host and port, and handles
     any exceptions"""
 
     try:
-        dataSocket.connect((hostName, dataPort))
+        dataSocket.connect((hostName, int(dataPort)))
     except socket.error as e:
         if e.errno == errno.ECONNREFUSED: #Handling the exception of the socket connection being refused
             print "error: socket connection refused"
@@ -66,36 +71,22 @@ def connectDataSocket(dataSocket, hostName, dataPort):
 
     print 'Sucessfully established TCP data connection\n'        
 
-def execCmd(connectionSocket, cmd, dataPort, hostName):
+def checkCmd(connectionSocket, cmd):
     validCmd = False
-    if '-l' or 'list' in cmd:
+    if 'list' == cmd:
         validCmd = True
-        
-        #Initiate TCP data connection
-        dataSocket = createSocket()
-        connectDataSocket(dataSocket, hostName, dataPort)
-        files = os.listdir(os.curdir)
-
-        listStr = ''
-        for i in files:
-            listStr = listStr + i + '\n'
-
-        dataSocket.send(listStr)    
-
-
-
+ 
     elif 'get' in cmd and '.' in cmd:
         validCmd = True
-        dataSocket.send('get command received')
-
-
 
     if validCmd == False:
         connectionSocket.send('Invalid command entered; Valid commands are \'list\', and \'get <filename>\'')
     else:
         connectionSocket.send('valid command sent: ' + cmd)
 
-def listenForCmd(controlSocket,portNum):
+    return validCmd    
+
+def listenForCmd(controlSocket,portNum,clientHostName):
     """Waits for the command to be recieved from 
     the FTP client"""
     controlSocket.bind(('',int(portNum)))
@@ -105,16 +96,34 @@ def listenForCmd(controlSocket,portNum):
         connectionSocket, addr = controlSocket.accept()
         received = connectionSocket.recv(1024)
         receivedArray = received.split(":")
-        hostName = receivedArray[0]
-        dataPort = int(receivedArray[1])
-        cmd = receivedArray[2]
 
+        dataPort = receivedArray[0]
+        cmd = receivedArray[1]
 
-        execCmd(connectionSocket, cmd, dataPort, hostName)  #Check if the command sent was valid and execute it if it is
+        print clientHostName + " " + dataPort + " " + cmd + "\n"
+
+        validCmd = checkCmd(connectionSocket, cmd)  #Check if the command sent was valid and execute it if it is
+        
+        if validCmd == False:
+           print 'Invalid command\n' 
+           connectionSocket.close()
+           sys.exit(1)
+
+        else:
+           dataSocket = createSocket()
+           received = connectionSocket.recv(1024)
+           if received == 'valid cmd received':
+               connectDataSocket(dataSocket, clientHostName, dataPort)
+               if cmd == 'list':
+                   files = os.listdir(os.curdir)
+                   fileStr = ''
+                   for i in files:
+                       fileStr = fileStr + i + '\n'
+                   dataSocket.send(fileStr)    
+
         connectionSocket.close()
 
 #main program
-ctrlPort = getPort() #get host and port numbers
+ctrlPort, clientHostName = getPort() #get host and port numbers
 controlSocket = createSocket() #create the socket for the TCP control connection
-
-listenForCmd(controlSocket, ctrlPort) # Await user commands from the server
+listenForCmd(controlSocket, ctrlPort, clientHostName) # Await user commands from the server

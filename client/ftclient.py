@@ -27,7 +27,7 @@ def getHostPortCmd():
     to connect to from the command line arguments"""
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "h:c:d:g:l", ["host=", "controlport=", "dataport=", "list", "get="])
+        opts, args = getopt.getopt(sys.argv[1:], "h:c:d:", ["cmd="])
     except getopt.GetoptError as err:
         print "USAGE:  ./ftclient.py -h [hostname] -d [dataport] -c [controlport] [-l or -g <filename> for list or get] \n"
         print "OR: ./ftclient.py --host [hostname] --dataport [dataport] --controlport [controlport] [--list or --get <filename>]\n"
@@ -40,19 +40,19 @@ def getHostPortCmd():
 
     
     for o, a in opts:
-        if o in ("-h", "--host"):
+        if o in ("-h"):
             hostName = a
-        elif o in ("-c", "--controlport"):
+        elif o in ("-c"):
             ctrlPort = a
-        elif o in ("-d", "--dataport"):
+        elif o in ("-d"):
             dataPort = a
-        elif o in ("-l", "--list"):
+        elif o in ("--cmd"):
             cmd = a
-        elif o in ("-g", "--get"):
-            cmd = "get " + a
 
     if '.engr.oregonstate.edu' not in hostName:
         hostName = hostName + '.engr.oregonstate.edu'
+
+
         
     return hostName, ctrlPort, dataPort, cmd
 
@@ -81,24 +81,23 @@ def connectControlSocket(controlSocket, hostName, portNum):
 
     print 'Sucessfully established TCP control connection\n'        
 
-
-
-
-def sendHostPortCmd(controlSocket, cmd, dataPort, hostName):
+def sendHostPortCmd(controlSocket, cmd, dataPort):
     
     """Send the command to the server.
     exit the program if an invalid command is entered"""
 
     #send the command that the user passed in earlier as well as the data port number and host
-    controlSocket.send(hostName + ":" + dataPort + ":" + cmd)    
+    controlSocket.send(dataPort + ":" + cmd)    
     recieved = controlSocket.recv(1024)
     print recieved
 
     if 'valid' in recieved:
+
         dataSocket = createSocket() #Create data socket
-        if 'list' or '-l' in cmd:
-            dataSocket.bind(('',dataPort))
+        if 'list' == cmd:
+            dataSocket.bind(('',int(dataPort)))
             dataSocket.listen(1)
+            controlSocket.send("valid cmd received")
             while 1:
                 connectionSocket, addr = dataSocket.accept()
                 received = connectionSocket.recv(1024)
@@ -116,15 +115,21 @@ def sendHostPortCmd(controlSocket, cmd, dataPort, hostName):
     controlSocket.close()
 
 
-#Main program
-hostName, ctrlPort, dataPort, cmd = getHostPortCmd() #Get the hostname and port number
+#Main program---------------------------
 
-controlSocket = createSocket() #Make the socket for the client
+#Get the hostname and port number
+hostName, ctrlPort, dataPort, cmd = getHostPortCmd() 
 
-print ctrlPort
 
-#connectControlSocket(controlSocket, hostName, ctrlPort) # connect the client socket
-#sendHostPortCmd(controlSocket, cmd) #get the command from user input and send to the server, as well as the hostname and dataport number
+
+#Make the socket for the client
+controlSocket = createSocket() 
+
+# connect the client socket
+connectControlSocket(controlSocket, hostName, ctrlPort) 
+
+#get the command from user input and send to the server, as well as the hostname and dataport number
+sendHostPortCmd(controlSocket, cmd, dataPort) 
 
 
 
