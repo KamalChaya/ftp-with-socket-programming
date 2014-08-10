@@ -27,7 +27,7 @@ def getHostPortCmd():
     to connect to from the command line arguments"""
     
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "h:c:d:", ["cmd="])
+        opts, args = getopt.getopt(sys.argv[1:], "h:c:d:lg:")
     except getopt.GetoptError as err:
         print "USAGE:  ./ftclient.py -h [hostname] -d [dataport] -c [controlport] [-l or -g <filename> for list or get] \n"
         print "OR: ./ftclient.py --host [hostname] --dataport [dataport] --controlport [controlport] [--list or --get <filename>]\n"
@@ -46,13 +46,13 @@ def getHostPortCmd():
             ctrlPort = a
         elif o in ("-d"):
             dataPort = a
-        elif o in ("--cmd"):
-            cmd = a
+        elif o in ("-l"):
+            cmd = 'list'
+        elif o in ("-g"):
+            cmd = 'get ' + a
 
     if '.engr.oregonstate.edu' not in hostName:
         hostName = hostName + '.engr.oregonstate.edu'
-
-
         
     return hostName, ctrlPort, dataPort, cmd
 
@@ -86,6 +86,8 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
     """Send the command to the server.
     exit the program if an invalid command is entered"""
 
+    print cmd + '\n'
+
     #send the command that the user passed in earlier as well as the data port number and host
     controlSocket.send(dataPort + ":" + cmd)    
     recieved = controlSocket.recv(1024)
@@ -97,6 +99,7 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
             dataSocket.bind(('',int(dataPort)))
             dataSocket.listen(1)
             controlSocket.send("valid cmd received")
+
             while 1:
                 endRcv = False
                 connectionSocket, addr = dataSocket.accept()
@@ -109,33 +112,68 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
                     print received
 
                 if endRcv == True:
-                    dataSocket.close()
+                    connectionSocket.close()
+                    controlSocket.close()
                     break
-                
-
             
-        if 'get' in cmd:
-            dataSocket.bind(('',dataPort))
+        if 'get ' in cmd and len(cmd) > 4:
+            dataSocket.bind(('',int(dataPort)))
             dataSocket.listen(1)
+            controlSocket.send("valid cmd received")
+            
             while 1:
                 connectionSocket, addr = dataSocket.accept()
-                received = connectionSocket.recv(1024)
-                print received + '\n'
+                received = controlSocket.recv(1024)
+                if received == 'error: the file was not found':
+                    print received + '\n'
+                    sys.exit(1) #Kernel will close sockets for us
+                else:
+                    #Recieve the file from the server
+                    fileName = received.split(":")[0]
+                    fileSize = received.split(":")[1]
+                    controlSocket.send("transfer")
+                    print 'Getting file \''+fileName+'\', ' + fileSize + ' bytes\n'
 
-    controlSocket.close()
+                    fileSize = int(fileSize)
+                    msg = ''
 
+                    while len(msg) < fileSize:
+                        chunk = connectionSocket.recv(fileSize - len(msg))
+                        print 'Received ' + str(len(chunk)) + ' bytes...\n'
+                        if chunk == '':
+                            print 'Socket connection broken\n'
+                            sys.exit(1)
+
+                        msg = msg + chunk
+                    
+                    print 'file has been transmitted\n' 
+
+                    if os.path.isfile(fileName):
+                        response = raw_input(fileName + " exists. Do you want to overwrite it?(y/n): ")
+                        if response != 'y':
+                            print 'File will not be saved\n'
+                            connectionSocket.close()
+                            controlSocket.close()
+                            return 
+                        
+                    with open(fileName, 'w') as out:
+                        out.write(msg)
+                        
+                    print 'The file has been saved\n'    
+                        
+
+
+    
 
 #Main program---------------------------
 
 #Get the hostname and port number
 hostName, ctrlPort, dataPort, cmd = getHostPortCmd() 
 
-
-
 #Make the socket for the client
 controlSocket = createSocket() 
 
-# connect the client socket
+#connect the client socket
 connectControlSocket(controlSocket, hostName, ctrlPort) 
 
 #get the command from user input and send to the server, as well as the hostname and dataport number
