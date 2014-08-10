@@ -86,6 +86,8 @@ def checkCmd(connectionSocket, cmd):
 
     return validCmd    
 
+
+
 def listenForCmd(controlSocket,portNum,clientHostName):
     """Waits for the command to be recieved from 
     the FTP client"""
@@ -119,7 +121,10 @@ def listenForCmd(controlSocket,portNum,clientHostName):
                    fileStr = ''
                    for i in files:
                        fileStr = fileStr + i + '\n'
-                   dataSocket.send(fileStr)    
+                   dataSocket.send(fileStr+"end")    
+
+
+           dataSocket.close()        
 
         connectionSocket.close()
 

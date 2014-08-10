@@ -92,16 +92,26 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
     print recieved
 
     if 'valid' in recieved:
-
         dataSocket = createSocket() #Create data socket
         if 'list' == cmd:
             dataSocket.bind(('',int(dataPort)))
             dataSocket.listen(1)
             controlSocket.send("valid cmd received")
             while 1:
+                endRcv = False
                 connectionSocket, addr = dataSocket.accept()
-                received = connectionSocket.recv(1024)
-                print received + '\n'
+                received = connectionSocket.recv(4096)
+                
+                if 'end' in received:
+                    print received[:len(received)-3]
+                    endRcv = True
+                else:    
+                    print received
+
+                if endRcv == True:
+                    dataSocket.close()
+                    break
+                
 
             
         if 'get' in cmd:
