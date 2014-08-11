@@ -10,9 +10,10 @@
 #
 #     2. Then you have to run the script with the following command 
 #        (without the square brackets):
-#                 ./ftclient.py -h [hostname] -d [dataport] -c [controlport] [-l or -g <filename> for list or get]
-#                 ./ftclient.py --host [hostname] --dataport [dataport] --controlport [controlport] [--list or --get <filename>]
-#        
+#                 ./ftclient.py -h [hostname for server] -d [dataport] -c [controlport] [-l or -g <filename> for list or get]
+#
+#                  dataport means the port number to be used for the TCP data connection, and controlport means the port
+#                  number to be used for the TCP control connection.
 #
 
 import socket

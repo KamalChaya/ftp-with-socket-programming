@@ -10,7 +10,7 @@
 #
 #     2. Then you have to run the script with the following command
 #        (omit the square brackets)
-#                 ./ftserver.py [port number]
+#                 ./ftserver.py -c [port number for control connection]
 #
 
 import socket
