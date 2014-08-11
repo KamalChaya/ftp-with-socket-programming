@@ -23,14 +23,31 @@ import getopt
 
 #functions
 def getHostPortCmd():
-    """Get the hostName, command, and port number
-    to connect to from the command line arguments"""
+    """
+    Function: getHostPortCmd()
+
+    Input Paramters:
+        None
+
+    Output:
+        returns the hostname of the server, data port number, control port number, and command that the user enters as
+        command line arguments. Prints an error message showing how the arguments should be entered correctly if the
+        arguments are entered incorrectly by the user.
+     
+    Description:
+        See "Output". Uses getopt to parse command line arguments
+
+    Internal Dependencies:    
+        None
+
+    External Dependencies:
+        python getopt library
+    """
     
     try:
         opts, args = getopt.getopt(sys.argv[1:], "h:c:d:lg:")
     except getopt.GetoptError as err:
         print "USAGE:  ./ftclient.py -h [hostname] -d [dataport] -c [controlport] [-l or -g <filename> for list or get] \n"
-        print "OR: ./ftclient.py --host [hostname] --dataport [dataport] --controlport [controlport] [--list or --get <filename>]\n"
         sys.exit(1)
 
     hostName = None
@@ -38,7 +55,6 @@ def getHostPortCmd():
     dataPort = None
     cmd = None   
 
-    
     for o, a in opts:
         if o in ("-h"):
             hostName = a
@@ -57,8 +73,26 @@ def getHostPortCmd():
     return hostName, ctrlPort, dataPort, cmd
 
 def createSocket():
-    """Creates a TCP socket
-    and returns it, and handles the appropriate exceptions"""
+    """
+    Function: createSocket()
+
+    Input Parameters:
+        None
+
+    Output:
+        returns a IPv4 TCP socket, or prints an error message if the socket creation fails
+
+    Description:
+        Returns a TCP Ipv4 socket, but if the socket cant be created due to an error, an error
+        message is printed and the program exits
+
+    Internal Dependencies
+        None
+
+    External Dependencies
+        python socket API
+        python sys API
+    """
 
     try:
         return socket.socket(socket.AF_INET, socket.SOCK_STREAM) #Create the socket
@@ -67,8 +101,31 @@ def createSocket():
         sys.exit(1)
 
 def connectControlSocket(controlSocket, hostName, portNum):
-    """Connects the socket to the host and port, and 
-    handles any exceptions"""
+    """
+    Function: connectControlSocket()
+
+    Input Parameters:
+        controlSocket: the socket for the TCP control connection
+        hostName: the hostName of the server to connect the socket to
+        portNum: the number of the port to connect the socket to
+
+    Output:
+        error messages if the socket connection is refused or some
+        other error occurs when connecting the socket
+
+    Description:
+        Connects the socket to the hostname and port number provided. Handles
+        any exceptions if the connection is refused or doesnt work for a different
+        reason.
+        
+    Internal Dependencies:
+        None
+
+    External Dependencies:
+        python error library
+        python socket API
+        python sys API
+    """
     try:
         controlSocket.connect((hostName, int(portNum)))
     except socket.error as e:
@@ -82,6 +139,30 @@ def connectControlSocket(controlSocket, hostName, portNum):
     print 'Sucessfully established TCP control connection\n'        
 
 def receiveListCommand(controlSocket, dataSocket, dataPort):
+    """
+    Function: receiveListCommand()
+
+    Input Parameters:
+        controlSocket: the socket for the TCP control connection
+        dataSocket: the socket for the TCP data connection
+
+    Output:
+        prints out the listing of files on the servers current working directory
+
+    Description:
+        Listens on the data socket for the server to send back the listing of files
+        in its current directory and prints them on to the screen. The server
+        attaches a "end" to the end of the message so the client knows when the server
+        is finished sending. When the end is detected, the last three characters of
+        the message received from the server are not printed. This way, only the listing
+        of files on the servers current directory is printed.
+
+    Internal Dependencies:
+        None
+
+    External Dependencies:
+        python socket API
+    """
     dataSocket.bind(('',int(dataPort)))
     dataSocket.listen(1)
     controlSocket.send("valid cmd received")
@@ -104,6 +185,42 @@ def receiveListCommand(controlSocket, dataSocket, dataPort):
 
 
 def receiveFile(controlSocket, dataSocket, dataPort):
+    """
+    Function: receiveFile()
+    
+    Input Parameters:
+        controlSocket: the socket for the TCP control connection
+        dataSocket: the socket for the TCP data connection
+        dataPort: the port number used for the TCP data connection
+
+    Output:
+        prints messages showing what file is being downloaded, 
+        how many bytes have been received, what to do if the file
+        is already there, and an error message if the socket connection
+        is broken
+
+    Description:
+        This function listens on the data socket for the server
+        to send the file. If the server sends a 'the file was not found'
+        message, the client prints this and exits. However if the file was
+        found, the client recieves the files name and size from the server
+        and sends back a message "transfer" indicating it is ready for the
+        file transfer. Upon receipt of this message the server will send the
+        file to the client, and the client reads the file in chunks in a while
+        loop. Later a check is done to see if the file already exists on the
+        client. If it does, the user is given the option to overwrite the file.
+        If they choose to overwrite the file, the file is downloaded from the server
+        otherwise the file is not downloaded. If the file is not found in the 
+        client's current directory, the file is downloaded from the server.
+
+    Internal Dependencies:
+        None
+
+    External Dependencies:
+        python socket API
+        python os API
+        python sys API
+    """
     dataSocket.bind(('',int(dataPort)))
     dataSocket.listen(1)
     controlSocket.send("valid cmd received")
@@ -151,11 +268,35 @@ def receiveFile(controlSocket, dataSocket, dataPort):
 
 
 def sendHostPortCmd(controlSocket, cmd, dataPort):
-    """Send the command to the server.
-    exit the program if an invalid command is entered"""
+    """
+    Function: sendHostPortCmd()
+    
+    Input Parameters:
+        the socket to receive and send data over the TCP control connection (controlSocket)
+        the command to send to the server (cmd)
+        the number for the data port for the TCP data connection to send to the server (dataPort)
+
+    Output:
+        Prints out whatever the server sends back over the TCP control connection
+
+    Description:
+        Sends the hostname of the client, port number for the data connection, and command entered
+        by the user to the server. It sends this over the TCP control connection. The server will send
+        back a message indicating if a valid command was sent or not. If the command sent was invalid, 
+        the sockets for the data and control connections are closed and the function ends with a return 
+        statement. If the command was valid, an appropriate function is executed to receive the results
+        of the command, whether it be a 'list' command or a 'get' command
+        
+    Internal Dependencies:
+        receiveListCommand()
+        receiveFile()
+
+    External Dependencies:
+        python socket API
+    """
 
     #send the command that the user passed in earlier as well as the data port number and host
-    controlSocket.send(dataPort + ":" + cmd)    
+    controlSocket.send(dataPort + ":" + cmd + ":" + socket.gethostname())    
     recieved = controlSocket.recv(1024)
     print recieved
 
@@ -169,6 +310,11 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
         if 'get ' in cmd and len(cmd) > 4:
             #Function to receive the file from the server
             receiveFile(controlSocket, dataSocket, dataPort)
+
+    else:
+        dataSocket.close()
+        controlSocket.close()
+        return
 
 
 #Main program---------------------------
