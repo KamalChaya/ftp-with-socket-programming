@@ -94,6 +94,49 @@ def checkCmd(connectionSocket, cmd):
 
     return validCmd    
 
+def execListCmd(dataSocket):
+    print 'Executing \'list\' command...\n'
+
+    files = os.listdir(os.curdir)
+    fileStr = ''
+
+    for i in files:
+          fileStr = fileStr + i + '\n'
+
+    dataSocket.send(fileStr+"end")    
+
+def execGetCmd(connectionSocket, dataSocket, cmd):
+    fileName = cmd.split()[1]
+    print 'Executing \'get\' ' + fileName + ' command...\n'
+
+    fileSize = 0
+                   
+    try:
+        fileSize = os.path.getsize(fileName)
+
+    except os.error:
+        connectionSocket.send('error: the file was not found')
+
+    else:
+        connectionSocket.send(fileName + ":" + str(fileSize))
+        received = connectionSocket.recv(1024)
+        if received == "transfer":
+
+               #Start sending the file to the client here
+               fileStr = open(fileName, 'r').read()
+               totalBytesSent = 0
+               while totalBytesSent < fileSize:
+                       sent = dataSocket.send(fileStr[totalBytesSent:])
+
+                       print "Bytes sent: " + str(sent) + " out of " + str(fileSize) + " \n" 
+
+                       if sent == 0:
+                            print 'Socket connection broken\n'
+                            sys.exit(1)
+
+                       totalBytesSent = totalBytesSent + sent                       
+
+
 def listenForCmd(controlSocket,portNum,clientHostName):
     """Waits for the command to be recieved from 
     the FTP client"""
@@ -124,43 +167,10 @@ def listenForCmd(controlSocket,portNum,clientHostName):
            if received == 'valid cmd received':
                connectDataSocket(dataSocket, clientHostName, dataPort)
                if cmd == 'list':
-                   print 'Executing \'list\' command...\n'
-
-                   files = os.listdir(os.curdir)
-                   fileStr = ''
-                   for i in files:
-                       fileStr = fileStr + i + '\n'
-                   dataSocket.send(fileStr+"end")    
+                   execListCmd(dataSocket)
 
                elif 'get ' in cmd and len(cmd) > 4:
-                   fileName = cmd.split()[1]
-                   print 'Executing \'get\' ' + fileName + ' command...\n'
-
-                   fileSize = 0
-                   
-                   try:
-                       fileSize = os.path.getsize(fileName)
-
-                   except os.error:
-                       connectionSocket.send('error: the file was not found')
-
-                   else:
-                       connectionSocket.send(fileName + ":" + str(fileSize))
-                       received = connectionSocket.recv(1024)
-                       if received == "transfer":
-                           #Start sending the file to the client here
-                           fileStr = open(fileName, 'r').read()
-                           totalBytesSent = 0
-                           while totalBytesSent < fileSize:
-                               sent = dataSocket.send(fileStr[totalBytesSent:])
-
-                               print "Bytes sent: " + str(sent) + " out of " + str(fileSize) + " \n" 
-
-                               if sent == 0:
-                                      print 'Socket connection broken\n'
-                                      sys.exit(1)
-                               totalBytesSent = totalBytesSent + sent                       
-
+                   execGetCmd(connectionSocket, dataSocket, cmd)
 
            dataSocket.close()        
         connectionSocket.close()

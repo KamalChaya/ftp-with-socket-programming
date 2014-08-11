@@ -81,12 +81,78 @@ def connectControlSocket(controlSocket, hostName, portNum):
 
     print 'Sucessfully established TCP control connection\n'        
 
+def receiveListCommand(controlSocket, dataSocket, dataPort):
+    dataSocket.bind(('',int(dataPort)))
+    dataSocket.listen(1)
+    controlSocket.send("valid cmd received")
+
+    while 1:
+        endRcv = False
+        connectionSocket, addr = dataSocket.accept()
+        received = connectionSocket.recv(4096)
+                
+        if 'end' in received:
+              print received[:len(received)-3]
+              endRcv = True
+        else:    
+              print received
+
+        if endRcv == True:
+              connectionSocket.close()
+              controlSocket.close()
+              break
+
+
+def receiveFile(controlSocket, dataSocket, dataPort):
+    dataSocket.bind(('',int(dataPort)))
+    dataSocket.listen(1)
+    controlSocket.send("valid cmd received")
+            
+    while 1:
+         connectionSocket, addr = dataSocket.accept()
+         received = controlSocket.recv(1024)
+         if received == 'error: the file was not found':
+                print received + '\n'
+                sys.exit(1) #Kernel will close sockets for us
+         else:
+                #Recieve the file from the server
+                fileName = received.split(":")[0]
+                fileSize = received.split(":")[1]
+                controlSocket.send("transfer")
+                print 'Getting file \''+fileName+'\', ' + fileSize + ' bytes\n'
+
+                fileSize = int(fileSize)
+                msg = ''
+
+                while len(msg) < fileSize:
+                    chunk = connectionSocket.recv(fileSize - len(msg))
+                    print 'Received ' + str(len(chunk)) + ' bytes...\n'
+                    if chunk == '':
+                        print 'Socket connection broken\n'
+                        sys.exit(1)
+
+                    msg = msg + chunk
+                    
+                print 'file has been transmitted\n' 
+
+                if os.path.isfile(fileName):
+                    response = raw_input(fileName + " exists. Do you want to overwrite it?(y/n): ")
+                    if response != 'y':
+                        print 'File will not be saved\n'
+                        connectionSocket.close()
+                        controlSocket.close()
+                        return 
+                        
+                with open(fileName, 'w') as out:
+                    out.write(msg)
+                        
+                print 'The file has been saved\n'    
+                return
+
+
 def sendHostPortCmd(controlSocket, cmd, dataPort):
-    
     """Send the command to the server.
     exit the program if an invalid command is entered"""
-
-    print cmd + '\n'
 
     #send the command that the user passed in earlier as well as the data port number and host
     controlSocket.send(dataPort + ":" + cmd)    
@@ -96,74 +162,14 @@ def sendHostPortCmd(controlSocket, cmd, dataPort):
     if 'valid' in recieved:
         dataSocket = createSocket() #Create data socket
         if 'list' == cmd:
-            dataSocket.bind(('',int(dataPort)))
-            dataSocket.listen(1)
-            controlSocket.send("valid cmd received")
-
-            while 1:
-                endRcv = False
-                connectionSocket, addr = dataSocket.accept()
-                received = connectionSocket.recv(4096)
-                
-                if 'end' in received:
-                    print received[:len(received)-3]
-                    endRcv = True
-                else:    
-                    print received
-
-                if endRcv == True:
-                    connectionSocket.close()
-                    controlSocket.close()
-                    break
+            #The function to get the results of the list command from the server
+            #and show it on screen
+            receiveListCommand(controlSocket, dataSocket, dataPort)
             
         if 'get ' in cmd and len(cmd) > 4:
-            dataSocket.bind(('',int(dataPort)))
-            dataSocket.listen(1)
-            controlSocket.send("valid cmd received")
-            
-            while 1:
-                connectionSocket, addr = dataSocket.accept()
-                received = controlSocket.recv(1024)
-                if received == 'error: the file was not found':
-                    print received + '\n'
-                    sys.exit(1) #Kernel will close sockets for us
-                else:
-                    #Recieve the file from the server
-                    fileName = received.split(":")[0]
-                    fileSize = received.split(":")[1]
-                    controlSocket.send("transfer")
-                    print 'Getting file \''+fileName+'\', ' + fileSize + ' bytes\n'
+            #Function to receive the file from the server
+            receiveFile(controlSocket, dataSocket, dataPort)
 
-                    fileSize = int(fileSize)
-                    msg = ''
-
-                    while len(msg) < fileSize:
-                        chunk = connectionSocket.recv(fileSize - len(msg))
-                        print 'Received ' + str(len(chunk)) + ' bytes...\n'
-                        if chunk == '':
-                            print 'Socket connection broken\n'
-                            sys.exit(1)
-
-                        msg = msg + chunk
-                    
-                    print 'file has been transmitted\n' 
-
-                    if os.path.isfile(fileName):
-                        response = raw_input(fileName + " exists. Do you want to overwrite it?(y/n): ")
-                        if response != 'y':
-                            print 'File will not be saved\n'
-                            connectionSocket.close()
-                            controlSocket.close()
-                            return 
-                        
-                    with open(fileName, 'w') as out:
-                        out.write(msg)
-                        
-                    print 'The file has been saved\n'    
-                        
-
-
-    
 
 #Main program---------------------------
 
