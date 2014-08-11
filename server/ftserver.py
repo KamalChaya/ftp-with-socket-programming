@@ -46,7 +46,7 @@ def sigIntHandler(signal, frame):
         python sys API
     """
 
-    print 'Server exiting...\n'
+    print 'Server exiting... the kernel will close the sockets\n'
     sys.exit(0)
 
 def getPort():
@@ -264,7 +264,7 @@ def execGetCmd(connectionSocket, dataSocket, cmd):
 
     """
     fileName = cmd.split()[1]
-    print 'Executing \'get\' ' + fileName + ' command...\n'
+    print 'Executing \'get ' + fileName + '\' command...\n'
 
     fileSize = 0
                    
@@ -294,14 +294,13 @@ def execGetCmd(connectionSocket, dataSocket, cmd):
                        totalBytesSent = totalBytesSent + sent                       
 
 
-def listenForCmd(controlSocket,portNum,clientHostName):
+def listenForCmd(controlSocket,portNum):
     """
     Function: listenForCmd()
 
     Input parameters: 
         the Socket for the TCP control connection (controlSocket)
         the port number the TCP control socket should bind to (portNum)
-        the host name of the client (clientHostName)
 
     Output:
         This function doesn't output anything except when there is an 
@@ -367,4 +366,4 @@ def listenForCmd(controlSocket,portNum,clientHostName):
 #main program
 ctrlPort = getPort() #get host and port numbers
 controlSocket = createSocket() #create the socket for the TCP control connection
-listenForCmd(controlSocket, ctrlPort, clientHostName) # Await user commands from the server
+listenForCmd(controlSocket, ctrlPort) # Await user commands from the server
